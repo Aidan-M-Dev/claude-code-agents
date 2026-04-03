@@ -1,6 +1,6 @@
 # Claude Code Agents for Full-Stack Web Development
 
-A collection of 9 specialized [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) that enforce a disciplined development workflow: architecture-first design, Docker-containerized environments, test-driven development, security-by-default, and clean git history.
+A collection of 10 specialized [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) that enforce a disciplined development workflow: architecture-first design, Docker-containerized environments, test-driven development, security-by-default, and clean git history.
 
 Built for hackathons and personal projects where you want to move fast without sacrificing code quality. Every project is containerized from the first task — `docker compose up` is all anyone needs to run your code.
 
@@ -14,6 +14,7 @@ These agents fix that by **separating concerns into distinct roles**, each with 
 
 | Agent | Role | Tools | Phase |
 |-------|------|-------|-------|
+| `orchestrator` | Manages the full pipeline, spawns all other agents | Agent(\*), Read, Write, Bash, Grep, Glob | Coordination |
 | `architect` | Designs system architecture, produces `architecture.md` | Read, Write, Bash, Grep, Glob | Planning |
 | `planner` | Decomposes architecture into sequenced tasks in `tasks.md` | Read, Write, Grep, Glob | Planning |
 | `tdd-test-writer` | Writes failing tests from acceptance criteria (RED phase) | Read, Write, Edit, Bash, Grep, Glob | Quality |
@@ -26,50 +27,59 @@ These agents fix that by **separating concerns into distinct roles**, each with 
 
 ## Workflow
 
-Every feature follows the same pipeline. The planner encodes this sequence into `tasks.md`, so you just work through tasks in order.
+Every feature follows the same pipeline. In orchestrated mode, the `orchestrator` agent manages this entire flow automatically. In manual mode, you invoke each agent yourself.
 
 ```
-┌─────────────┐     ┌──────────┐
-│  architect   │────▶│  planner  │
-│              │     │           │
-│ Designs the  │     │ Creates   │
-│ system       │     │ tasks.md  │
-└─────────────┘     └─────┬────┘
-                          │
-            For each task in tasks.md:
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │ tdd-test-writer  │
-                 │                  │
-                 │ Writes failing   │
-                 │ tests (RED)      │
-                 └────────┬────────┘
-                          │
-                          ▼
-          ┌───────────────────────────────┐
-          │      Specialist Agent         │
-          │  (frontend / backend / db)    │
-          │                               │
-          │  Implements to pass tests     │
-          │  (GREEN)                      │
-          └───────────────┬───────────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │  code-reviewer   │
-                 │                  │
-                 │  Read-only       │
-                 │  PASS / FAIL     │◀── if FAIL, specialist fixes
-                 └────────┬────────┘
-                          │ PASS
-                          ▼
-                 ┌─────────────────┐
-                 │  git-committer   │
-                 │                  │
-                 │  Security scan   │
-                 │  + Commit        │
-                 └─────────────────┘
+                    ┌──────────────────────────────────────────────┐
+                    │              orchestrator                     │
+                    │  Spawns agents, verifies outputs, retries    │
+                    │  (run via: claude --agent orchestrator)       │
+                    └──────────────────┬───────────────────────────┘
+                                       │
+                    ┌──────────────────┼───────────────────────────┐
+                    │                  ▼                            │
+                    │  ┌─────────────┐     ┌──────────┐           │
+                    │  │  architect   │────▶│  planner  │           │
+                    │  │              │     │           │           │
+                    │  │ Designs the  │     │ Creates   │           │
+                    │  │ system       │     │ tasks.md  │           │
+                    │  └─────────────┘     └─────┬────┘           │
+                    │                            │                 │
+                    │          For each task in tasks.md:          │
+                    │                            │                 │
+                    │                            ▼                 │
+                    │                   ┌─────────────────┐        │
+                    │                   │ tdd-test-writer  │        │
+                    │                   │                  │        │
+                    │                   │ Writes failing   │        │
+                    │                   │ tests (RED)      │        │
+                    │                   └────────┬────────┘        │
+                    │                            │                 │
+                    │                            ▼                 │
+                    │        ┌───────────────────────────────┐     │
+                    │        │      Specialist Agent         │     │
+                    │        │  (frontend / backend / db)    │     │
+                    │        │                               │     │
+                    │        │  Implements to pass tests     │     │
+                    │        │  (GREEN)                      │     │
+                    │        └───────────────┬───────────────┘     │
+                    │                        │                     │
+                    │                        ▼                     │
+                    │               ┌─────────────────┐            │
+                    │               │  code-reviewer   │            │
+                    │               │                  │            │
+                    │               │  Read-only       │            │
+                    │               │  PASS / FAIL     │◀── retry  │
+                    │               └────────┬────────┘   (max 3)  │
+                    │                        │ PASS                 │
+                    │                        ▼                     │
+                    │               ┌─────────────────┐            │
+                    │               │  git-committer   │            │
+                    │               │                  │            │
+                    │               │  Security scan   │            │
+                    │               │  + Commit        │            │
+                    │               └─────────────────┘            │
+                    └──────────────────────────────────────────────┘
 ```
 
 The `security-auditor` can be invoked independently at any time for a full-codebase audit, or the `git-committer` will run its own pre-commit security checks before each commit. For higher-stakes projects, invoke `security-auditor` explicitly between `code-reviewer` and `git-committer`.
@@ -152,13 +162,79 @@ cp agents/*.md ~/.claude/agents/
 
 ### Verify
 
-In Claude Code, run `/agents` to see all 9 agents listed.
+In Claude Code, run `/agents` to see all 10 agents listed.
 
 ## Usage Guide
 
-### Starting a new project
+There are two ways to use these agents: **orchestrated** (recommended) and **manual**.
 
-**Step 1 — Design the architecture.** Describe what you want to build. The architect agent asks clarifying questions if needed and produces `architecture.md`.
+### Orchestrated mode (recommended)
+
+The `orchestrator` agent manages the entire pipeline — it spawns the right specialist at the right time, verifies outputs between steps, handles review failures with retries, and tracks progress in tasks.md. You describe what you want, then watch it work.
+
+**Important:** The orchestrator must run as the main session agent using the `--agent` flag. This is the only way an agent can spawn other agents in Claude Code.
+
+**Start a new project:**
+
+```bash
+claude --agent orchestrator
+```
+
+Then describe what you want to build:
+
+```
+Build a task management app with user auth, kanban boards, and
+real-time updates. Use Vue.js for the frontend.
+```
+
+The orchestrator will:
+1. Ask clarifying questions if your requirements are ambiguous.
+2. Spawn `architect` → produce `architecture.md` → show you key decisions for approval.
+3. Spawn `planner` → produce `tasks.md` → show you the task summary.
+4. For each task: spawn `tdd-test-writer` → specialist → `code-reviewer` → `git-committer`.
+5. If code review fails, automatically retry the specialist with the review feedback (up to 3 times).
+6. Run a final `security-auditor` scan and verify `docker compose up` works.
+
+**You can intervene at any time.** The orchestrator pauses for your input on architecture decisions, and stops if an agent fails repeatedly. You're the project owner, not a passenger.
+
+**Add a feature to an existing project:**
+
+```bash
+claude --agent orchestrator
+```
+
+```
+Add a notifications system to this project — email and in-app.
+```
+
+The orchestrator reads existing `architecture.md` and `tasks.md`, updates them, and executes only the new tasks.
+
+**Fix a bug:**
+
+```bash
+claude --agent orchestrator
+```
+
+```
+There's a bug: users can register with duplicate emails.
+The POST /api/auth/register endpoint returns 201 instead of 409.
+```
+
+The orchestrator skips architecture/planning, goes straight to writing a failing test that reproduces the bug, fixes it, reviews, and commits.
+
+**Make it the default for a project** by adding to `.claude/settings.json`:
+
+```json
+{
+  "agent": "orchestrator"
+}
+```
+
+### Manual mode
+
+If you prefer direct control, invoke each agent yourself in a standard Claude Code session. This is useful when you want to run a single step, skip steps, or work interactively with a specialist.
+
+**Start a new project:**
 
 ```
 Use the architect agent to design a task management app with user auth,
@@ -167,15 +243,13 @@ project boards, and real-time updates. Use Vue.js for the frontend.
 
 Review `architecture.md`. Edit it yourself if you disagree with any decisions — it's the source of truth for all downstream agents.
 
-**Step 2 — Create the task plan.** The planner reads `architecture.md` and produces `tasks.md` with sequenced, dependency-aware tickets.
-
 ```
 Use the planner agent to create tasks from the architecture
 ```
 
 Review `tasks.md`. Reorder, remove, or add tasks as needed.
 
-**Step 3 — Work through tasks.** For each task, follow the sequence. The task in `tasks.md` tells you which agent to use.
+For each task, follow the sequence. The task in `tasks.md` tells you which agent to use.
 
 ```
 Use the tdd-test-writer agent to write tests for Task 1
@@ -191,7 +265,7 @@ Repeat for each task.
 
 ### Handling review failures
 
-If `code-reviewer` returns a FAIL verdict, re-invoke the implementation agent with the feedback:
+If `code-reviewer` returns a FAIL verdict (in manual mode — the orchestrator handles this automatically):
 
 ```
 Use the backend-dev agent to fix the issues found by code-reviewer:
@@ -202,7 +276,7 @@ Then re-run `code-reviewer`. Repeat until PASS.
 
 ### Skipping steps (hackathon speed mode)
 
-For hackathons where speed matters more than thoroughness, you can compress the workflow:
+For hackathons where speed matters more than thoroughness, you can compress the workflow. This only applies to manual mode — the orchestrator always follows the full pipeline.
 
 - **Skip `code-reviewer`** if you trust the implementation agent and tests are passing.
 - **Combine tasks** by telling an agent to handle multiple tasks at once.
@@ -251,18 +325,20 @@ model: inherit
 Your system prompt here.
 ```
 
-Then update `planner.md` to include your new agent in its "Agent Assignment" section so it knows to assign tasks to it.
+Then update `planner.md` to include your new agent in its "Agent Assignment" section so it knows to assign tasks to it. Also update `orchestrator.md`: add the new agent name to the `Agent(...)` tool list in its frontmatter, and add it to the "Your Team" table in its prompt.
 
 ### Changing models
 
 Each agent's `model` field controls which Claude model it uses. The defaults are:
 
-- `inherit` (uses your session's model) for agents that need strong reasoning — architect, planner, tdd-test-writer, all implementation agents, code-reviewer.
+- `inherit` (uses your session's model) for agents that need strong reasoning — orchestrator, architect, planner, tdd-test-writer, all implementation agents, code-reviewer.
 - `sonnet` for cost-effective pattern matching — security-auditor, git-committer.
 
 To change an agent's model, edit the `model:` line in its frontmatter. Options: `opus`, `sonnet`, `haiku`, or a full model ID like `claude-sonnet-4-6`.
 
 ## Design Decisions
+
+**Why an orchestrator?** Without it, you're the glue — manually invoking each agent in sequence, remembering which task is next, re-running reviewers after fixes. The orchestrator eliminates that overhead. It runs as the main session agent (via `claude --agent orchestrator`), which is the only context where an agent can spawn other agents in Claude Code. It doesn't write code itself — it delegates everything and verifies results between steps.
 
 **Why separate test-writer and implementation agents?** When the same agent writes tests and code, it unconsciously writes tests that match its planned implementation rather than testing behavior. A separate agent writes tests purely from acceptance criteria, producing more honest coverage.
 
@@ -277,6 +353,12 @@ To change an agent's model, edit the `model:` line in its frontmatter. Options: 
 ## Troubleshooting
 
 **Agent not showing up in `/agents`** — Restart Claude Code. Agents are loaded at session start. If installed to `.claude/agents/`, make sure you're in the project root.
+
+**Orchestrator can't spawn agents** — The orchestrator MUST be run with `claude --agent orchestrator`. If you start a normal session and ask it to "use the orchestrator," it runs as a subagent, and subagents cannot spawn other subagents. This is a Claude Code limitation, not a bug. Use the `--agent` flag.
+
+**Orchestrator writes code directly instead of delegating** — The orchestrator has Write/Edit tools for updating tasks.md status, but is instructed never to write application code. If it starts writing code itself, interrupt it and say "delegate this to the [specialist] agent, don't write code directly."
+
+**Orchestrator gets stuck in a retry loop** — It's capped at 3 retries for review failures and 2 for infrastructure issues. If you see it looping, it should stop and ask you. If it doesn't, interrupt and ask it what's failing — sometimes the issue is in the tests, not the implementation.
 
 **Agent ignores its instructions** — Subagents get ONLY their own system prompt, not the main Claude Code system prompt. If an agent seems confused, check that its `.md` file has the correct frontmatter and that its prompt is self-contained.
 
