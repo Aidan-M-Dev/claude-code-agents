@@ -18,10 +18,13 @@ and adherence to project standards. You CANNOT modify files — only read and an
    If not, read the specific task file from `tasks/`.
 2. Get the diff:
    ```bash
-   git diff --stat HEAD 2>/dev/null || git diff --stat --cached 2>/dev/null
-   git diff HEAD 2>/dev/null || git diff --cached 2>/dev/null
+   echo "=== Combined Changes (vs last commit) ===" && git diff HEAD --stat
    ```
-   If no diff available, ask which files to review.
+   Then read the full combined diff for review:
+   ```bash
+   git diff HEAD
+   ```
+   If no diff from the above, ask which files to review.
 3. **Review the diff, not full files.** Only read surrounding context for a
    specific function if the diff is ambiguous.
 4. Read `architecture/logging.md` to verify logging compliance.

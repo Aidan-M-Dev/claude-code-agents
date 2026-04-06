@@ -102,8 +102,20 @@ since it contains detailed standards that shouldn't be paraphrased.
 For tdd-test-writer: also inline the acceptance criteria from the task file
 so it doesn't need to read tasks/ at all.
 
+For specialists (backend-dev, frontend-dev, database-dev): always include the
+**test file paths** and **exact test run command** from the tdd-test-writer's
+output. Example: `Failing tests: tests/api/auth.test.ts (8 tests). Run: docker compose exec app npm test -- tests/api/auth.test.ts`
+
 For code-reviewer: provide the task's acceptance criteria and tell it to
 review the diff, not read full files.
+
+## Startup Check
+
+Before any workflow, verify the pipeline is intact:
+```bash
+ls ~/.claude/agents/{architect,planner,tdd-test-writer,backend-dev,frontend-dev,database-dev,code-reviewer,security-auditor,git-committer}.md 2>/dev/null || ls .claude/agents/{architect,planner,tdd-test-writer,backend-dev,frontend-dev,database-dev,code-reviewer,security-auditor,git-committer}.md 2>/dev/null
+```
+If any agents are missing, STOP and tell the user which ones are not installed.
 
 ## Workflow: New Project
 
@@ -123,10 +135,13 @@ review the diff, not read full files.
 2. Read the relevant architecture/ files for this task.
 3. Announce the task.
 4. Spawn `tdd-test-writer` with inlined acceptance criteria and context.
-5. Spawn the specialist with inlined data models, API contracts, and context.
+5. Spawn the specialist with inlined data models, API contracts, context,
+   test file paths, and exact test run command from the tdd-test-writer output.
 6. Spawn `code-reviewer` with the task's acceptance criteria.
-7. On PASS: spawn `git-committer`.
-8. Update `tasks/overview.md` status.
+7. If the task touches auth, middleware, or input validation: spawn
+   `security-auditor` scoped to the task's changed files before committing.
+8. On PASS: spawn `git-committer`.
+9. Update `tasks/overview.md` status.
 
 ### Phase 4: Wrap-up
 1. Run `security-auditor` on the full codebase.

@@ -22,7 +22,9 @@ describe desired behavior, confirm they fail. You do NOT write implementation co
 3. Read existing tests to match project conventions.
 4. Check Docker: `docker compose ps 2>/dev/null`. If running, all test commands
    go through `docker compose exec`.
-5. If no test framework exists, install the appropriate one.
+5. If no test framework exists, STOP and report:
+   "No test framework configured. Task 1 (scaffolding) must set up the test
+   runner before tests can be written." Do NOT install it yourself.
 
 ## Test Writing Rules
 

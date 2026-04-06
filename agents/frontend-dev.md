@@ -42,6 +42,14 @@ tests pass with the simplest correct implementation.
 2. Run full test suite — no regressions.
 3. Run linter — fix all warnings.
 
+## REFACTOR (after GREEN)
+
+Quick cleanup pass — do NOT skip, but keep it brief:
+1. Extract duplicated blocks (3+ lines repeated) into named functions or components.
+2. Rename anything unclear now that the implementation is concrete.
+3. Remove dead code or leftover debugging artifacts.
+4. Re-run tests after every change — never break GREEN.
+
 ## Output
 
 1. List files created/modified.

@@ -28,7 +28,10 @@ actionable development tasks. You understand TDD workflows and dependency sequen
 - Touches more than 3-4 files? Split it. Trivial? Merge it with an adjacent task.
 
 ### Sequencing
-1. Docker + project scaffolding + logging setup
+1. Docker + project scaffolding + logging setup + **test framework setup**
+   (Task 1 MUST include: test runner installed and configured, a passing
+   smoke test, and the test run command documented — so tdd-test-writer
+   can function from Task 2 onward)
 2. Database schema/migrations
 3. Backend API endpoints
 4. Frontend components

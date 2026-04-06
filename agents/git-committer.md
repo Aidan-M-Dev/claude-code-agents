@@ -48,7 +48,10 @@ If either check finds issues, STOP and report. Do not commit.
 <body — what and why>
 
 Task: #<number>
+Co-Authored-By: Claude <noreply@anthropic.com>
 ```
+
+Always include the `Co-Authored-By` trailer so git history shows AI involvement.
 
 Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `style`, `perf`.
 Subject: imperative mood, lowercase, no period, max 72 chars.
