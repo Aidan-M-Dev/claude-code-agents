@@ -87,7 +87,22 @@ Auth strategy, session/token management, role definitions, protected routes.
 - Secrets management (which env vars are needed)
 - Known risks and mitigations
 
-## 9. Docker & Containerization
+## 9. Logging & Observability
+Logging strategy for debugging — this code WILL have bugs, and logs are how they
+get diagnosed (by humans reading docker compose logs, or by a Claude agent).
+
+- Logging library and configuration (e.g., pino for Node, structlog for Python)
+- Log levels: when to use error, warn, info, debug
+- Structured logging format (JSON for production, pretty for development)
+- Request ID middleware: generate a unique ID per request, thread it through all logs
+- Request/response logging middleware: method, path, status, duration
+- Error response format: include requestId in error responses so frontend errors
+  can be correlated with backend logs
+- Frontend logging: shared logger utility with module prefixes and log levels
+- Database query logging: enable in development for debugging
+- All logs to stdout/stderr for Docker visibility
+
+## 10. Docker & Containerization
 Full Docker setup specification:
 - Dockerfile: base image, build stages (dev vs production), exposed ports
 - docker-compose.yml services: app, database, and any other services (redis, etc.)
@@ -98,11 +113,11 @@ Full Docker setup specification:
 - Development workflow: `docker compose up` must be the ONLY command needed to start
 - Database initialization: migrations and seeds must run automatically on first start
 
-## 10. Environment Variables
+## 11. Environment Variables
 | Variable | Purpose | Example | Required |
 |----------|---------|---------|----------|
 
-## 11. External Dependencies & Services
+## 12. External Dependencies & Services
 Any third-party APIs, services, or tools. Include fallback strategies.
 ```
 
@@ -112,6 +127,7 @@ Any third-party APIs, services, or tools. Include fallback strategies.
 - Data models must include validation constraints, not just types.
 - API contracts must include error responses, not just happy paths.
 - Security section must be substantive, not boilerplate.
+- Logging section must specify the actual library, format, and middleware — not just "use logging."
 - Docker section must specify exact base images with pinned versions (not `latest`).
 - Project structure MUST include: `Dockerfile`, `docker-compose.yml`, `.dockerignore`,
   and `.env.example` with all required environment variables.

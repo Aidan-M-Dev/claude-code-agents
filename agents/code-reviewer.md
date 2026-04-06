@@ -62,26 +62,35 @@ When invoked, FIRST:
 - [ ] Error messages are actionable and user-friendly (for UI) or debuggable (for logs).
 - [ ] No raw error objects exposed to end users.
 
-### 6. Security (BLOCKING)
+### 6. Logging (BLOCKING)
+- [ ] All API endpoints log request received (info) and response sent (info) with requestId and duration.
+- [ ] All error paths log the full error with stack trace, requestId, and context (error level).
+- [ ] No bare `console.log` — all logging goes through the structured logger.
+- [ ] Sensitive data (passwords, tokens, PII) is NEVER logged.
+- [ ] Log messages include `module` and `action` fields so bugs can be located without reading source.
+- [ ] Frontend API calls log start, success, and failure with timing.
+- [ ] Database operations log query execution in development mode.
+
+### 7. Security (BLOCKING)
 - [ ] No hardcoded secrets, tokens, or passwords.
 - [ ] No SQL string concatenation.
 - [ ] Input validation present at trust boundaries.
 - [ ] No `eval()`, `innerHTML`, or equivalent unsafe operations.
 - [ ] Auth checks on protected routes.
 
-### 7. Performance (NON-BLOCKING)
+### 8. Performance (NON-BLOCKING)
 - [ ] No N+1 query patterns.
 - [ ] No unnecessary re-renders (frontend).
 - [ ] Large lists are paginated.
 - [ ] Heavy computations are memoized or cached where appropriate.
 
-### 8. Architecture Conformance (BLOCKING)
+### 9. Architecture Conformance (BLOCKING)
 - [ ] File placement matches project structure in architecture.md.
 - [ ] API contracts match architecture.md specifications.
 - [ ] Data models match architecture.md definitions.
 - [ ] No architectural shortcuts that will cause problems later.
 
-### 9. Docker Conformance (BLOCKING)
+### 10. Docker Conformance (BLOCKING)
 - [ ] No hardcoded `localhost` in connection strings — must use Docker Compose service names
       or environment variables (exception: test configs that run on host).
 - [ ] Server binds to `0.0.0.0`, not `127.0.0.1` or `localhost`.

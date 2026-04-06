@@ -20,7 +20,7 @@ pass with the simplest correct implementation.
 When invoked, FIRST:
 
 1. Read `architecture.md` — specifically sections 2 (Tech Stack), 3 (Project Structure),
-   6 (Frontend Components), and 9 (Docker & Containerization).
+   6 (Frontend Components), 9 (Logging & Observability), and 10 (Docker & Containerization).
 2. Read `tasks.md` and find the specific task assigned to you.
 3. Read the failing test files for this task (they were written by tdd-test-writer).
    Understand EXACTLY what behavior is expected.
@@ -60,6 +60,41 @@ When invoked, FIRST:
 - Show user-friendly error messages, not raw error objects.
 - Network failures must be handled gracefully (retry option, offline indicator).
 - Form validation must run client-side before submission AND handle server-side errors.
+
+### Logging (NON-NEGOTIABLE)
+
+Frontend bugs are diagnosed from the browser console. Every log must carry enough
+context that someone reading the console (or a Claude agent reading test output)
+can pinpoint the problem without reading source code.
+
+- **Create a shared logger utility** — don't use bare `console.log` scattered
+  through the code. The logger should:
+  - Prefix every message with the component/module name: `[AuthForm]`, `[OrderService]`
+  - Support log levels: `error`, `warn`, `info`, `debug`
+  - Be disabled or reduced to `error`+`warn` in production builds (use env variable)
+  - In development, output readable, colored messages to the browser console
+- **Log at every boundary:**
+  - API call start: method, URL, key params (info level)
+  - API call complete: status, duration in ms (info level)
+  - API call failure: status, error message, request details (error level)
+  - State changes: what changed and why (debug level)
+  - User actions: what was clicked/submitted, with sanitized data (debug level)
+  - Route changes: from/to paths (debug level)
+  - Component mount/unmount: only for complex components with side effects (debug level)
+- **Error boundaries / global error handler:**
+  - Catch unhandled errors and log them with full stack trace + component tree
+  - Log the error to console AND display a user-friendly message in the UI
+  - Include the `requestId` from failed API responses so the frontend error can be
+    correlated with backend logs
+- **API client logging:** The HTTP client (axios, fetch wrapper) must log every
+  request and response automatically. Include timing. On error, log the full
+  response body — this is where backend error messages and `requestId` live.
+  ```typescript
+  logger.info(`[API] POST /api/users — 201 (${duration}ms)`);
+  logger.error(`[API] POST /api/users — 422 (${duration}ms)`, { requestId, errors });
+  ```
+- **Never log sensitive data:** No passwords, tokens, or PII in console output.
+  Log user IDs, not names or emails.
 
 ### Styling
 - Use the approach specified in architecture.md (Tailwind, CSS Modules, scoped styles, etc.).

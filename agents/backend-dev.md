@@ -20,7 +20,8 @@ with the simplest correct implementation.
 When invoked, FIRST:
 
 1. Read `architecture.md` — specifically sections 2 (Tech Stack), 4 (Data Models),
-   5 (API Contracts), 7 (Auth), 8 (Security Considerations), and 9 (Docker & Containerization).
+   5 (API Contracts), 7 (Auth), 8 (Security Considerations), 9 (Logging & Observability),
+   and 10 (Docker & Containerization).
 2. Read `tasks.md` and find the specific task assigned to you.
 3. Read the failing test files for this task.
 4. Read `docker-compose.yml` and `Dockerfile` to understand the container setup.
@@ -69,6 +70,51 @@ When invoked, FIRST:
 - Auth tokens must have expiration.
 - Never log sensitive data (passwords, tokens, PII).
 - Use environment variables for all secrets. Never hardcode.
+
+### Logging (NON-NEGOTIABLE)
+
+This code WILL have bugs. Logs are how they get found and fixed — by humans reading
+the browser/terminal OR by a Claude agent reading `docker compose logs`. Every log
+line must carry enough context to diagnose the problem WITHOUT reading source code.
+
+- **Use a structured logger** (pino, winston, or Python's structlog/logging with JSON
+  formatter). NEVER use bare `console.log` in production code. Set up the logger in a
+  shared module and import it everywhere.
+- **Log at the right level:**
+  - `error` — something failed and needs attention (include full error + stack trace)
+  - `warn` — something unexpected but handled (e.g., retry, fallback)
+  - `info` — significant operations completing (request handled, user created, job finished)
+  - `debug` — detailed flow for diagnosing bugs (function entry, variable values, branch taken)
+- **Every log line must include:**
+  - `requestId` — a unique ID per HTTP request (generate in middleware, thread through all calls)
+  - `module` — which file/service (e.g., `"auth.service"`, `"orders.controller"`)
+  - `action` — what operation (e.g., `"createUser"`, `"validateToken"`)
+  - `userId` — if authenticated (never log the token itself)
+- **Log at every decision point and boundary:**
+  - Incoming request: method, path, requestId (info level)
+  - Outgoing response: status code, requestId, duration in ms (info level)
+  - Database queries: what query, how long it took (debug level)
+  - External API calls: service name, endpoint, status, duration (info level)
+  - Validation failures: which field, what was wrong (warn level)
+  - Caught errors: full error message + stack trace + requestId (error level)
+  - Auth decisions: who was checked, what was the result (debug level)
+- **Middleware pattern:** Create a request logging middleware that logs request start
+  and response end with timing. Attach `requestId` to the request object so all
+  downstream code can include it.
+- **Error responses must include a `requestId`** in the response body so users (and
+  debugging agents) can correlate a browser error with the server logs:
+  ```json
+  { "error": { "code": "VALIDATION_ERROR", "message": "...", "requestId": "abc-123" } }
+  ```
+- **Docker visibility:** Logs MUST go to stdout/stderr (not files) so they appear in
+  `docker compose logs`. Configure the logger to output JSON in production and
+  pretty-printed in development.
+- **When something might go wrong, log BEFORE and AFTER:**
+  ```typescript
+  logger.debug({ requestId, action: 'createUser', email }, 'creating user');
+  const user = await userService.create(data);
+  logger.info({ requestId, action: 'createUser', userId: user.id }, 'user created');
+  ```
 
 ### Database Interaction
 - Use the ORM/query builder specified in architecture.md.

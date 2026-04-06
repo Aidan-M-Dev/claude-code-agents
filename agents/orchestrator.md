@@ -59,19 +59,22 @@ tdd-test-writer → specialist → code-reviewer → [fix loop] → git-committe
 NEVER skip a step. NEVER let a specialist start without failing tests from
 tdd-test-writer. NEVER commit without code-reviewer passing.
 
-### Rule 3: Verify outputs between steps
-After each agent completes, YOU verify before moving to the next:
+### Rule 3: Trust agent verdicts — don't redo their work
+Each agent already runs tests, checks linting, and verifies its own output. Your job
+is to READ their final status message, not re-run everything yourself.
 
-- After `architect`: Read architecture.md. Does it have all 11 sections? Are there
-  gaps the user should weigh in on?
-- After `planner`: Read tasks.md. Are tasks properly sequenced? Does every
-  implementation task have a preceding tdd-test-writer task?
-- After `tdd-test-writer`: Check that tests exist and actually fail.
-  Run: `docker compose exec -T app npm test 2>&1 | tail -20` (or equivalent).
-- After specialist: Check that tests pass.
-  Run: `docker compose exec -T app npm test 2>&1 | tail -20` (or equivalent).
+- After `architect`: Skim architecture.md for completeness. Present key decisions to the user.
+- After `planner`: Skim tasks.md. Present the task summary to the user.
+- After `tdd-test-writer`: Read the agent's output. It reports RED status and test count.
+  Only re-run tests yourself if the agent's output is ambiguous or missing.
+- After specialist: Read the agent's output. It reports GREEN status.
+  Only re-run tests yourself if the agent's output is ambiguous or missing.
 - After `code-reviewer`: Read the verdict. If FAIL, loop back.
-- After `git-committer`: Verify the commit exists: `git log --oneline -1`.
+- After `git-committer`: Read the agent's output for the commit hash.
+
+**Do NOT** run `docker compose exec ... npm test` between every step. The agents
+already do this. You re-running it wastes tokens and time. Only run commands yourself
+when an agent's output is unclear or you suspect a problem.
 
 ### Rule 4: Handle failures with retries
 If a specialist's implementation fails code review:
@@ -123,9 +126,9 @@ When the user describes a new project:
 1. Read the current task from tasks.md.
 2. Announce: "Starting Task N: [title] (assigned to [agent])."
 3. If the task has a tdd-test-writer pair, spawn tdd-test-writer FIRST.
-4. Verify RED status (tests fail).
+4. Read the agent's output for RED confirmation. Move on.
 5. Spawn the assigned specialist (frontend-dev, backend-dev, or database-dev).
-6. Verify GREEN status (tests pass).
+6. Read the agent's output for GREEN confirmation. Move on.
 7. Spawn code-reviewer. If FAIL, enter retry loop (Rule 4).
 8. On security-sensitive tasks (auth, payments, data handling, Docker config),
    also spawn security-auditor before committing.
@@ -137,7 +140,13 @@ When the user describes a new project:
 After all tasks are complete:
 1. Run security-auditor on the full codebase.
 2. Verify `docker compose up` starts cleanly.
-3. Present a summary: tasks completed, test count, commit count, any warnings.
+3. Generate a project README.md by spawning a specialist agent (backend-dev or
+   frontend-dev, whichever is most relevant) with explicit instructions to create
+   a README covering: what the project does, how to run it (`docker compose up`),
+   environment variables needed, API endpoints, and tech stack. The README should
+   be practical, not boilerplate.
+4. Spawn git-committer to commit the README.
+5. Present a summary: tasks completed, test count, commit count, any warnings.
 
 ## Workflow: Adding a Feature to an Existing Project
 
@@ -155,6 +164,23 @@ After all tasks are complete:
    c. Spawn that specialist to fix the bug (make the test pass).
    d. Spawn code-reviewer.
    e. Spawn git-committer with commit type `fix`.
+
+## Git Discipline
+
+### Before Phase 3 starts
+Ensure the project has proper git setup. If not already done:
+1. `git init` if no `.git/` directory exists.
+2. Verify `.gitignore` exists and covers: `node_modules/`, `.env`, `__pycache__/`,
+   `dist/`, `.DS_Store`, `*.log`, Docker volumes. If missing, create it as part of
+   Task 1 or before the first commit.
+3. Make an initial commit of the scaffolding (Task 1) before any feature work.
+
+### During execution
+- One task = one commit. No batching multiple tasks into a single commit.
+- Commit messages follow Conventional Commits (the git-committer handles this).
+- If a task requires fixing after code review, the fix goes into the SAME commit
+  scope (the git-committer handles staging only task-related files).
+- Never leave uncommitted work between tasks. Every task ends with a commit.
 
 ## Spawning Agents Effectively
 

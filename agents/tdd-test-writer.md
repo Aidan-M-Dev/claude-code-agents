@@ -74,6 +74,17 @@ Test names must read as specifications:
 - Match whatever convention the project already uses.
 - Group related tests with describe blocks.
 
+### Logging Tests
+For backend endpoints and services, include tests that verify logging behavior:
+- Error paths produce log output that includes the error message and requestId.
+- Successful operations produce an info-level log with timing.
+- Use a spy/mock on the logger to assert log calls without checking exact messages.
+  Focus on: was the right log level used? Does it include requestId? Does it include
+  the module/action context?
+
+These tests ensure that when bugs happen in production, the logs will actually
+contain the information needed to diagnose them.
+
 ### What NOT to Test
 - Framework internals (don't test that Vue reactivity works)
 - Third-party library behavior

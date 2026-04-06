@@ -30,19 +30,10 @@ When invoked, FIRST:
 
 ## Pre-Commit Checks
 
-Before committing, run these checks. If any FAIL, do NOT commit.
+Before committing, run these lightweight checks. Security scanning is the
+security-auditor's job — don't duplicate it here.
 
-### 1. Secret Scan
-```bash
-# Quick scan of staged files for secrets
-git diff --cached --name-only | while read f; do
-  grep -nE "(password|secret|api_key|token|private_key)\s*[:=]\s*['\"][^'\"]{8,}" "$f" 2>/dev/null
-done | grep -v "\.test\." | grep -v "\.spec\." | grep -v "example" | grep -v "\.env\.example"
-```
-
-If anything is found, STOP and report. Do not commit.
-
-### 2. Large File Check
+### 1. Large File Check
 ```bash
 # Check for files > 1MB that shouldn't be in git
 git diff --cached --name-only | while read f; do
@@ -53,43 +44,22 @@ git diff --cached --name-only | while read f; do
 done
 ```
 
-### 3. Sensitive File Check
+If large files are found, STOP and report. Do not commit.
+
+### 2. Sensitive File Check
 ```bash
 # Check for files that should never be committed
 git diff --cached --name-only | grep -E "^\.env$|\.env\.local$|\.env\.production$|\.pem$|\.key$|\.p12$|\.pfx$|id_rsa"
 ```
 
-### 4. Docker File Check
-```bash
-# If Docker files are staged, verify they don't contain secrets
-for df in $(git diff --cached --name-only | grep -E "Dockerfile|docker-compose"); do
-  # Check for hardcoded secrets in Docker files
-  grep -nE "(PASSWORD|SECRET|API_KEY|TOKEN)=" "$df" 2>/dev/null | grep -v '\${' | grep -v 'example'
-done
+If sensitive files are staged, STOP and report. Do not commit.
 
-# Verify .dockerignore exists if Dockerfile is in the project
-if [ -f "Dockerfile" ] && [ ! -f ".dockerignore" ]; then
-  echo "WARNING: Dockerfile exists but .dockerignore is missing"
+### 3. .gitignore Check
+```bash
+# Verify .gitignore exists and covers the basics
+if [ ! -f ".gitignore" ]; then
+  echo "WARNING: No .gitignore file found"
 fi
-```
-
-### 5. Test Status
-```bash
-# Verify tests are passing — prefer Docker if available
-if docker compose ps --status running 2>/dev/null | grep -q "running"; then
-  docker compose exec -T app npm test 2>&1 | tail -10 || \
-  docker compose exec -T app pytest 2>&1 | tail -10 || \
-  echo "Could not run tests in Docker"
-else
-  npm test 2>&1 | tail -5 || pytest 2>&1 | tail -5 || echo "Could not run tests"
-fi
-```
-
-If tests fail, STOP and report. Do not commit.
-
-### 6. Linter Status
-```bash
-npm run lint 2>&1 | tail -10 || echo "No lint script found"
 ```
 
 ## Commit Message Format

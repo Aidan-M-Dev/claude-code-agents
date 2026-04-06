@@ -20,7 +20,8 @@ pass with the simplest correct implementation.
 When invoked, FIRST:
 
 1. Read `architecture.md` — specifically sections 2 (Tech Stack), 4 (Data Models),
-   9 (Docker & Containerization), and 10 (Environment Variables) for database connection details.
+   9 (Logging & Observability), 10 (Docker & Containerization), and 11 (Environment Variables)
+   for database connection details.
 2. Read `tasks.md` and find the specific task assigned to you.
 3. Read the failing test files for this task.
 4. Check if the database is running in Docker:
@@ -69,6 +70,30 @@ When invoked, FIRST:
 - Include at least: admin user, regular user, and enough related data to
   exercise all relationships.
 - Use realistic-looking data (not "test123", "foo@bar.com").
+
+### Logging (NON-NEGOTIABLE)
+
+Database operations are the #1 source of production bugs. Log everything needed
+to diagnose issues from `docker compose logs` without reading source code.
+
+- **Query logging in development:** Enable the ORM/query builder's built-in query
+  logging so every SQL query and its duration are printed to stdout. This is
+  essential for catching N+1 queries and slow operations.
+- **Migration logging:** Log every migration that runs: name, direction (up/down),
+  duration, success/failure. On failure, log the full error with the SQL that failed.
+  ```
+  [db:migrate] Running: 001_create_users_table (up)
+  [db:migrate] Completed: 001_create_users_table (up) in 45ms
+  [db:migrate] FAILED: 002_add_orders_table (up) — relation "users" does not exist
+  ```
+- **Connection logging:** Log database connection events: connected, disconnected,
+  pool exhaustion warnings, retry attempts.
+- **Seed logging:** Log what seed data was created: table name, row count.
+  ```
+  [db:seed] users: 5 rows inserted
+  [db:seed] orders: 12 rows inserted
+  ```
+- **All logs to stdout/stderr** so they appear in `docker compose logs`.
 
 ### Query Safety
 - NEVER use string concatenation for queries. Always parameterized.

@@ -10,6 +10,18 @@ Running a single Claude Code session for everything — design, implementation, 
 
 These agents fix that by **separating concerns into distinct roles**, each with its own system prompt, tool access, and quality standards. The test-writer can't implement code. The reviewer can't edit files. The committer won't commit without passing security checks. Structure prevents shortcuts.
 
+## Logging Philosophy
+
+This code **will** have bugs. The question is how quickly you can find and fix them.
+
+Every agent enforces structured logging as a non-negotiable requirement:
+
+- **Backend:** Every request gets a unique `requestId`. Every log line includes the module, action, and requestId. Error responses include the requestId so you can correlate a browser error with `docker compose logs`. Uses a structured logger (pino/winston/structlog), not bare `console.log`.
+- **Frontend:** A shared logger utility prefixes every message with the component name. API calls log start/success/failure with timing. Error boundaries catch unhandled errors with full stack traces.
+- **Database:** Query logging enabled in development. Migrations log what ran and how long it took. Connection events are logged.
+
+The goal: when something breaks, the logs in `docker compose logs` or the browser console tell you (or a Claude agent) **exactly** what went wrong, where, and with what input — without reading source code.
+
 ## The Agents
 
 | Agent | Role | Tools | Phase |
@@ -32,7 +44,7 @@ Every feature follows the same pipeline. In orchestrated mode, the `orchestrator
 ```
                     ┌──────────────────────────────────────────────┐
                     │              orchestrator                     │
-                    │  Spawns agents, verifies outputs, retries    │
+                    │  Spawns agents, reads verdicts, retries      │
                     │  (run via: claude --agent orchestrator)       │
                     └──────────────────┬───────────────────────────┘
                                        │
@@ -73,16 +85,21 @@ Every feature follows the same pipeline. In orchestrated mode, the `orchestrator
                     │               └────────┬────────┘   (max 3)  │
                     │                        │ PASS                 │
                     │                        ▼                     │
+                    │          ┌──────────────────────────┐         │
+                    │          │  security-auditor        │         │
+                    │          │  (sensitive tasks only)  │         │
+                    │          └────────────┬─────────────┘         │
+                    │                       │ PASS                  │
+                    │                       ▼                       │
                     │               ┌─────────────────┐            │
                     │               │  git-committer   │            │
                     │               │                  │            │
-                    │               │  Security scan   │            │
-                    │               │  + Commit        │            │
+                    │               │  Stage + Commit  │            │
                     │               └─────────────────┘            │
                     └──────────────────────────────────────────────┘
 ```
 
-The `security-auditor` can be invoked independently at any time for a full-codebase audit, or the `git-committer` will run its own pre-commit security checks before each commit. For higher-stakes projects, invoke `security-auditor` explicitly between `code-reviewer` and `git-committer`.
+The `security-auditor` is the single owner of security scanning — the `git-committer` does NOT duplicate this work. In orchestrated mode, the orchestrator spawns `security-auditor` before `git-committer` on security-sensitive tasks (auth, payments, data handling, Docker config). The `security-auditor` can also be invoked independently at any time for a full-codebase audit.
 
 ## Docker Integration
 
@@ -194,6 +211,7 @@ The orchestrator will:
 4. For each task: spawn `tdd-test-writer` → specialist → `code-reviewer` → `git-committer`.
 5. If code review fails, automatically retry the specialist with the review feedback (up to 3 times).
 6. Run a final `security-auditor` scan and verify `docker compose up` works.
+7. Generate a project `README.md` and commit it.
 
 **You can intervene at any time.** The orchestrator pauses for your input on architecture decisions, and stops if an agent fails repeatedly. You're the project owner, not a passenger.
 
@@ -350,6 +368,10 @@ To change an agent's model, edit the `model:` line in its frontmatter. Options: 
 
 **Why Docker from Task 1?** "It works on my machine" is the most common demo-day failure at hackathons. Containerizing from the start means every teammate (and every judge) can run the project with one command. It also eliminates "install Node 18 not 20" type issues and makes the database setup automatic. The small upfront cost of writing a Dockerfile pays for itself immediately.
 
+**Why is security-auditor separate from git-committer?** Each agent should own one concern. The committer was doing secret scanning, Docker checks, test runs, and linting — duplicating the security-auditor's job and slowing down every commit. Now the committer focuses on staging discipline and commit messages, and security scanning lives entirely in the security-auditor where it belongs.
+
+**Why is logging non-negotiable?** AI-generated code has bugs. The faster you can diagnose them, the faster you can feed the error context back to an agent for a fix. Structured logs with request IDs, module names, and timing let you (or a Claude agent reading `docker compose logs`) pinpoint the problem without reading source code. The agents enforce this at every level: architect designs the logging infrastructure, implementation agents write the logs, code-reviewer checks they're present, and tdd-test-writer verifies error paths produce useful log output.
+
 ## Troubleshooting
 
 **Agent not showing up in `/agents`** — Restart Claude Code. Agents are loaded at session start. If installed to `.claude/agents/`, make sure you're in the project root.
@@ -375,7 +397,3 @@ To change an agent's model, edit the `model:` line in its frontmatter. Options: 
 **Hot reload not working in Docker** — File watchers sometimes don't detect changes through Docker volume mounts, especially on macOS and Windows. The frontend-dev and backend-dev agents are instructed to configure polling mode, but if they miss it, add `usePolling: true` to your Vite/webpack/nodemon config. For Vite specifically, set `server.watch.usePolling: true` in `vite.config.ts`.
 
 **Database data disappeared** — If you ran `docker compose down -v`, the `-v` flag deletes named volumes (including database data). Use `docker compose down` (without `-v`) to stop services while keeping data. Use `docker compose down -v` intentionally when you want a fresh database.
-
-## License
-
-MIT

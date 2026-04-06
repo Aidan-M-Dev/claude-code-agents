@@ -35,15 +35,20 @@ When invoked, FIRST:
 
 ### Sequencing
 - Docker and project scaffolding FIRST (Dockerfile, docker-compose.yml, .dockerignore,
-  .env.example, package init, linter config, .gitignore). Everything runs in containers
-  from this point forward.
+  .env.example, package init, linter config, .gitignore, **logging setup**). This task
+  must also set up the structured logger (library, config, request ID middleware) so all
+  subsequent tasks can import and use it. Everything runs in containers from this point
+  forward.
 - Database schema and migrations SECOND (other layers depend on data shape).
   Database runs as a Docker Compose service.
 - Backend API endpoints THIRD (frontend depends on API contracts).
   Backend runs as a Docker Compose service with hot reload via volume mount.
 - Frontend components FOURTH (depend on API being available).
   Frontend runs as a Docker Compose service with hot reload via volume mount.
-- Integration and cross-cutting concerns LAST.
+- Integration and cross-cutting concerns FIFTH.
+- **README.md generation LAST** — a final task that creates a project README covering:
+  what the project does, how to run it (`docker compose up`), environment variables,
+  API endpoints, and tech stack. Assigned to the most relevant specialist agent.
 
 ### Agent Assignment
 Every task MUST specify one of these agents:
@@ -97,6 +102,7 @@ Produce `tasks.md` in the project root with this EXACT format:
   - [ ] [Another criterion]
   - [ ] All new code has JSDoc/docstring documentation
   - [ ] Code passes linting with zero warnings
+  - [ ] All operations have appropriate structured logging (error, info, debug)
 - **Testing Requirements:**
   - [What should be tested and how]
 - **Notes:** [Any gotchas, edge cases, or references to architecture.md sections]
